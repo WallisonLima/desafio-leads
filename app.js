@@ -8,17 +8,10 @@ async function go() {
 
     let words = []
 
-    //let logins = await requestLogs();
+    let logins = await requestLogs();
 
-    // logins = JSON.parse(logins)
+    logins = JSON.parse(logins)
 
-    let logins = [
-        { email: 'paulo@gmail.com', senha: '51564321' },
-        { email: 'fabiola@gmail.com', senha: '3542131' },
-        { email: 'victor@gmail.com', senha: '23543212' },
-        { email: 'pablo@gmail.com', senha: '35135' },
-        { email: 'camila@gmail.com', senha: '213512' }
-    ]
 
     let page = await configPage();
 
@@ -26,39 +19,66 @@ async function go() {
         await getWords(login, page, words)
     }
 
+    await postMensage(words)
+
+    console.log('processo concluído')
+}
 
 
-
-
-
-
-
+async function postMensage(words) {
+    return new Promise(async (resolve, reject) => {
+        request.post(
+            'http://apihomologa.leadsok.com.br/candidato/enviarfrase',
+            {
+                json: {
+                    frase: words.join(' '),
+                },
+            },
+            (error, res, body) => {
+                if (error) {
+                    console.error(error)
+                    return
+                }
+                resolve()
+            }   
+        )
+    })
 }
 
 
 
 async function getWords(login, page, words) {
     return new Promise(async (resolve, reject) => {
+        page.on("console", msg => {
+            if (msg._args[0]) {
+                if (!words.includes(msg._args[0]._remoteObject.preview.properties[1].value)) {
+                    words.push(msg._args[0]._remoteObject.preview.properties[1].value)
+                }
+            }
+        });
 
         await clickByAttr(page, 'name', 'email')
+        await backspace(page, 25)
         await page.keyboard.type(login.email)
+        await sleep(1000)
         await page.keyboard.press('Tab')
+        await backspace(page, 25)
+        await sleep(1000)
         await page.keyboard.type(login.senha)
         await sleep(1000)
         await clickByAttr(page, 'onclick', "ValidaLogin()")
-        await sleep(5000)
+        await sleep(2000)
 
-        console.log(page)
-
-
+        await page.reload({ waitUntil: ["networkidle0", "domcontentloaded"] });
+        await sleep(2000)
+        resolve(page)
     })
 }
 
 
 async function configPage() {
     return new Promise(async (resolve, reject) => {
-        const browser = await puppeteer.connect({ browserURL: 'http://localhost:8001' })
-        // const browser = await puppeteer.launch({headless: false})
+        const browser = await puppeteer.launch({ headless: false, dumpio: true })
         let page = await browser.pages()
         page = page[0]
         await page.goto(urlHome)
@@ -83,6 +103,17 @@ async function requestLogs() {
                 resolve(res.body)
             }
         )
+    })
+}
+
+
+
+async function backspace(page, quant) {
+    return new Promise(async (resolve, reject) => {
+        for (let i = 0; i < quant; i++) {
+            await page.keyboard.press('Backspace')
+        }
+        resolve()
     })
 }
 
